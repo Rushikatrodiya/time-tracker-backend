@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        BigInt   @id @default(autoincrement())
+  
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+I
+  projects  Project[] @relation("ProjectOwner")
+  tasks     Task[]    @relation("TaskAssignee")
+  timeLogs  TimeLog[]
+}
+
+model Project {
+  id        BigInt   @id @default(autoincrement())
+  name      String
+  status    ProjectStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
+
+  ownerId   BigInt
+  owner     User     @relation("ProjectOwner", fields: [ownerId], references: [id])
+
+  tasks     Task[]
+}
+
+model Task {
+  id          BigInt   @id @default(autoincrement())
+  title       String
+  status      TaskStatus @default(TODO)
+  priority    Int
+  createdAt   DateTime @default(now())
+
+  projectId   BigInt
+  project     Project  @relation(fields: [projectId], references: [id])
+
+  assignedToId BigInt?
+  assignedTo   User?   @relation("TaskAssignee", fields: [assignedToId], references: [id])
+
+  timeLogs    TimeLog[]
+}
+
+model TimeLog {
+  id        BigInt   @id @default(autoincrement())
+  startTime DateTime
+  endTime   DateTime?
+  duration  Int?
+
+  userId    BigInt
+  user      User     @relation(fields: [userId], references: [id])
+
+  taskId    BigInt
+  task      Task     @relation(fields: [taskId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  ADMIN
+  USER
+  MANAGER
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
