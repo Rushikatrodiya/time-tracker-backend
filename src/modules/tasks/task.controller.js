@@ -5,6 +5,7 @@ const {
   getAllTasks,
   updateTask,
   deleteTask,
+  getTaskById,
 } = require("./task.service");
 
 const createTaskController = asyncHandler(async (req, res) => {
@@ -21,10 +22,14 @@ const updateTaskController = asyncHandler(async (req, res) => {
   const { role } = req.user;
   const data = req.body;
   const { id } = req.params;
-  console.log("data recieved", id);
-
   const task = await updateTask(role, data, id);
   return success(res, task, "Task updated sucessfully");
+});
+
+const getTaskByIdController = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const task = await getTaskById(id);
+  return success(res, task, "Task fetched successfully");
 });
 
 const deleteTaskController = asyncHandler(async (req, res) => {
@@ -38,4 +43,5 @@ module.exports = {
   getAllTaskController,
   updateTaskController,
   deleteTaskController,
+  getTaskByIdController,
 };

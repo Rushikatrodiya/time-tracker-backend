@@ -51,7 +51,7 @@ model Task {
 
 model TimeLog {
   id        BigInt   @id @default(autoincrement())
-  startTime DateTime
+  startTime DateTime @default(now())
   endTime   DateTime?
   duration  Int?
 

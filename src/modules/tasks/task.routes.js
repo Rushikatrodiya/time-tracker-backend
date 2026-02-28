@@ -5,6 +5,7 @@ const {
   getAllTaskController,
   updateTaskController,
   deleteTaskController,
+  getTaskByIdController,
 } = require("./task.controller");
 
 const router = Router();
@@ -12,6 +13,7 @@ const router = Router();
 router.post("/", roleMiddleware("ADMIN", "MANAGER"), createTaskController);
 router.get("/", getAllTaskController);
 router.put("/:id", updateTaskController);
+router.get("/:id", getTaskByIdController);
 router.delete("/:id", roleMiddleware("ADMIN", "MANAGER"), deleteTaskController);
 
 module.exports = router;

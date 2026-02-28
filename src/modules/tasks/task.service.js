@@ -49,6 +49,30 @@ const getAllTasks = async () => {
   return tasks;
 };
 
+const getTaskById = async (id) => {
+  const task = await prisma.task.findMany({
+    where: { id },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      assignedTo: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  if (!task) throw new AppError("Task not found", 404);
+  return task;
+};
+
 const updateTask = async (role, data, id) => {
   if (!role || !data || !id) {
     throw new AppError("Invalid data", 400);
@@ -109,4 +133,5 @@ module.exports = {
   getAllTasks,
   updateTask,
   deleteTask,
+  getTaskById,
 };

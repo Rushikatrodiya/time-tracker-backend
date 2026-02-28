@@ -4,6 +4,7 @@ const userRoutes = require("./modules/users/user.routes");
 const projectRoutes = require("./modules/projects/project.routes");
 const errorMiddleware = require("./middlewares/error.middleware");
 const taskRoutes = require("./modules/tasks/task.routes");
+const timeLogRoutes = require("./modules/timelogs/timelogs.routes");
 const cookieParser = require("cookie-parser");
 const authMiddleware = require("./middlewares/auth.middleware");
 
@@ -15,6 +16,7 @@ app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
 app.use("/projects", authMiddleware, projectRoutes);
 app.use("/tasks", authMiddleware, taskRoutes);
+app.use("/timelogs", authMiddleware, timeLogRoutes);
 
 app.use(errorMiddleware);
 
