@@ -1,0 +1,330 @@
+paths:
+  /tasks:
+    post:
+      tags:
+        - Tasks
+      summary: Create a new task
+      description: Create a new task (Admin/Manager only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - projectId
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  description: Task title
+                description:
+                  type: string
+                  description: Task description
+                projectId:
+                  type: number
+                  description: Project ID
+                assignedTo:
+                  type: number
+                  description: User ID to assign task to
+                status:
+                  type: string
+                  enum: [TODO, IN_PROGRESS, DONE]
+                  description: Task status
+                priority:
+                  type: number
+                  description: Task priority
+                dueDate:
+                  type: string
+                  format: date
+                  description: Task due date
+      responses:
+        "201":
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    $ref: "#/components/schemas/Task"
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Project or User not found
+
+    get:
+      tags:
+        - Tasks
+      summary: Get all tasks
+      description: Get all tasks with optional filtering and pagination
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [TODO, IN_PROGRESS, DONE]
+          description: Filter by status
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: ["1", "2", "3"]
+          description: Filter by priority
+        - name: limit
+          in: query
+          schema:
+            type: string
+          description: Number of items per page
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Cursor for pagination
+      responses:
+        "200":
+          description: Tasks fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TaskWithRelations"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          description: Unauthorized
+
+  /tasks/{id}:
+    get:
+      tags:
+        - Tasks
+      summary: Get task by ID
+      description: Get a specific task by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Task ID
+      responses:
+        "200":
+          description: Task fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    $ref: "#/components/schemas/TaskWithRelations"
+        "404":
+          description: Task not found
+        "401":
+          description: Unauthorized
+
+    put:
+      tags:
+        - Tasks
+      summary: Update task
+      description: Update a task (Users can only update status, Admins/Managers can update all fields)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Task ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  description: Task title
+                description:
+                  type: string
+                  description: Task description
+                projectId:
+                  type: number
+                  description: Project ID
+                assignedTo:
+                  type: number
+                  description: User ID to assign task to
+                status:
+                  type: string
+                  enum: [TODO, IN_PROGRESS, DONE]
+                  description: Task status
+                priority:
+                  type: number
+                  description: Task priority
+                dueDate:
+                  type: string
+                  format: date
+                  description: Task due date
+      responses:
+        "200":
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    $ref: "#/components/schemas/Task"
+        "400":
+          description: Invalid data
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - User not authorized to update this task
+        "404":
+          description: Task or User not found
+
+    delete:
+      tags:
+        - Tasks
+      summary: Delete task
+      description: Delete a task (Admin/Manager only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Task ID
+      responses:
+        "200":
+          description: Task deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    $ref: "#/components/schemas/Task"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Task not found
+
+components:
+  schemas:
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Task ID
+        title:
+          type: string
+          description: Task title
+        description:
+          type: string
+          description: Task description
+        status:
+          type: string
+          enum: [TODO, IN_PROGRESS, DONE]
+          description: Task status
+        priority:
+          type: number
+          description: Task priority
+        dueDate:
+          type: string
+          format: date
+          description: Task due date
+        projectId:
+          type: number
+          description: Project ID
+        assignedToId:
+          type: number
+          description: Assigned user ID
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    TaskWithRelations:
+      allOf:
+        - $ref: "#/components/schemas/Task"
+        - type: object
+          properties:
+            project:
+              type: object
+              properties:
+                id:
+                  type: number
+                  description: Project ID
+                name:
+                  type: string
+                  description: Project name
+            assignedTo:
+              type: object
+              properties:
+                id:
+                  type: number
+                  description: User ID
+                name:
+                  type: string
+                  description: User name
+                email:
+                  type: string
+                  description: User email
+
+    Pagination:
+      type: object
+      properties:
+        nextCursor:
+          type: string
+          description: Cursor for next page
+        hasMore:
+          type: boolean
+          description: Whether more pages exist
