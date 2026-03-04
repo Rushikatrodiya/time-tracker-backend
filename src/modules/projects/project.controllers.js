@@ -11,8 +11,13 @@ const createProjectController = asyncHandler(async (req, res) => {
 
 const getAllProjectsController = asyncHandler(async (req, res) => {
   const { id, role } = req.user;
-  const projects = await getAllProjects({ ownerId: id, role });
-  return success(res, projects, "Projects fetched sucessfully", 200);
+  const query = req.query;
+  const { data, pagination } = await getAllProjects({
+    ownerId: id,
+    role,
+    query,
+  });
+  return success(res, data, "Projects fetched successfully", 200, pagination);
 });
 
 module.exports = {

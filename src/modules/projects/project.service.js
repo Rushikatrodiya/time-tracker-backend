@@ -1,5 +1,9 @@
 const { prisma } = require("../../config/db");
 const AppError = require("../../utils/AppError");
+const {
+  getPaginationResponse,
+  getPagination,
+} = require("../../utils/pagination");
 
 const createProject = async ({ name, description, status, ownerId }) => {
   if (!name) {
@@ -24,22 +28,34 @@ const createProject = async ({ name, description, status, ownerId }) => {
   });
 };
 
-const getAllProjects = async ({ ownerId, role }) => {
+const getAllProjects = async ({ ownerId, role, query }) => {
   if (!ownerId || !role) {
     throw new AppError("User not authorized", 400);
   }
 
-  let projects;
-
-  if (role === "ADMIN") {
-    projects = await prisma.project.findMany();
-  } else {
-    projects = await prisma.project.findMany({
-      where: { ownerId },
-    });
+  let where = {};
+  if (role != "ADMIN") {
+    where = {
+      ownerId,
+    };
   }
+  const { page, limit, offset } = getPagination(query);
 
-  return projects;
+  const [projects, totalProjects] = await prisma.$transaction([
+    prisma.project.findMany({
+      where,
+      skip: offset,
+      take: limit,
+    }),
+    prisma.project.count({
+      where,
+    }),
+  ]);
+
+  return {
+    data: projects,
+    pagination: getPaginationResponse(totalProjects, page, limit),
+  };
 };
 
 module.exports = {

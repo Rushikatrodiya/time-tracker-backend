@@ -20,7 +20,15 @@ const updateTaskSchema = z.object({
   dueDate: z.date().optional(),
 });
 
+const getTasksQuerySchema = z.object({
+  status: z.enum(["TODO", "IN_PROGRESS", "DONE"]).optional(),
+  priority: z.enum(["1", "2", "3"]).optional(),
+  limit: z.string().optional(),
+  cursor: z.string().optional(),
+});
+
 module.exports = {
   createTaskSchema,
   updateTaskSchema,
+  getTasksQuerySchema,
 };

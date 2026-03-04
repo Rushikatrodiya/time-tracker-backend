@@ -1,5 +1,9 @@
 const { prisma } = require("../../config/db");
 const AppError = require("../../utils/AppError");
+const {
+  getCursorPaginationResponse,
+  getCursorPagination,
+} = require("../../utils/cursorPagination");
 
 const createTask = async (data) => {
   const { title, status, priority, projectId, assignedTo } = data;
@@ -34,8 +38,17 @@ const createTask = async (data) => {
   return task;
 };
 
-const getAllTasks = async () => {
+const getAllTasks = async (query) => {
+  const { limit, cursorOption } = getCursorPagination(query);
+
+  let where = {};
+
+  if (query.status) {
+    where.status = query.status;
+  }
   const tasks = await prisma.task.findMany({
+    ...cursorOption,
+    where,
     include: {
       project: {
         select: { id: true, name: true },
@@ -46,7 +59,7 @@ const getAllTasks = async () => {
     },
   });
 
-  return tasks;
+  return { data: tasks, pagination: getCursorPaginationResponse(tasks, limit) };
 };
 
 const getTaskById = async (id) => {
