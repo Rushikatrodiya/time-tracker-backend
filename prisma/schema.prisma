@@ -15,17 +15,17 @@ model User {
   password  String
   role      Role     @default(USER)
   createdAt DateTime @default(now())
-I
   projects  Project[] @relation("ProjectOwner")
   tasks     Task[]    @relation("TaskAssignee")
   timeLogs  TimeLog[]
 }
 
 model Project {
-  id        BigInt   @id @default(autoincrement())
-  name      String
-  status    ProjectStatus @default(ACTIVE)
-  createdAt DateTime @default(now())
+  id          BigInt        @id @default(autoincrement())
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
 
   ownerId   BigInt
   owner     User     @relation("ProjectOwner", fields: [ownerId], references: [id])
@@ -51,7 +51,7 @@ model Task {
 
 model TimeLog {
   id        BigInt   @id @default(autoincrement())
-  startTime DateTime
+  startTime DateTime @default(now())
   endTime   DateTime?
   duration  Int?
 

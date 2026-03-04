@@ -1,0 +1,18 @@
+const { Router } = require("express");
+const {
+  startTimerController,
+  endTimeController,
+  getAllTimelogsController,
+} = require("./timelogs.controller");
+const validate = require("../../middlewares/validate.middleware");
+const {
+  startTimerSchema,
+} = require("./../../validatation/timelog.validations");
+
+const router = Router();
+
+router.post("/start", validate(startTimerSchema), startTimerController);
+router.post("/end", endTimeController);
+router.get("/", getAllTimelogsController);
+
+module.exports = router;
