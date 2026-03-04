@@ -1,0 +1,157 @@
+paths:
+  /timelogs:
+    get:
+      tags:
+        - Timelogs
+      summary: Get all timelogs
+      description: Get all timelogs (Admins see all, users see only their own)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Time logs fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TimeLogWithRelations"
+        "401":
+          description: Unauthorized
+
+  /timelogs/start:
+    post:
+      tags:
+        - Timelogs
+      summary: Start timer
+      description: Start a timer for a specific task
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - taskId
+              properties:
+                taskId:
+                  type: string
+                  minLength: 1
+                  description: Task ID
+      responses:
+        "200":
+          description: Timer started successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    $ref: "#/components/schemas/TimeLog"
+        "400":
+          description: Timer is already running
+        "401":
+          description: Unauthorized
+        "404":
+          description: Task not found
+
+  /timelogs/end:
+    post:
+      tags:
+        - Timelogs
+      summary: End timer
+      description: End the currently running timer
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Timer ended successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    $ref: "#/components/schemas/TimeLog"
+        "401":
+          description: Unauthorized
+        "404":
+          description: No active timer found
+
+components:
+  schemas:
+    TimeLog:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Time log ID
+        startTime:
+          type: string
+          format: date-time
+          description: Timer start time
+        endTime:
+          type: string
+          format: date-time
+          description: Timer end time
+        duration:
+          type: number
+          description: Duration in minutes
+        userId:
+          type: number
+          description: User ID
+        taskId:
+          type: string
+          description: Task ID
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    TimeLogWithRelations:
+      allOf:
+        - $ref: "#/components/schemas/TimeLog"
+        - type: object
+          properties:
+            task:
+              type: object
+              properties:
+                id:
+                  type: string
+                  description: Task ID
+                title:
+                  type: string
+                  description: Task title
+            user:
+              type: object
+              properties:
+                id:
+                  type: number
+                  description: User ID
+                name:
+                  type: string
+                  description: User name
+                email:
+                  type: string
+                  description: User email
