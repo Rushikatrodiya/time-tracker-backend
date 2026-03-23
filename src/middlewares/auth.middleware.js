@@ -3,12 +3,12 @@ const { verifyAccessToken } = require("../modules/auth/token.util");
 
 const authMiddleWare = (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    const token = req.cookies.accessToken;
+    console.log(token, "====token====");
+
+    if (!token) {
       throw new AppError("Unauthorized", 401);
     }
-
-    const token = authHeader.split(" ")[1];
 
     const user = verifyAccessToken(token);
     req.user = user;
