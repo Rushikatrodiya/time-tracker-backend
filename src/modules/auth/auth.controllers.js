@@ -17,8 +17,8 @@ const ACCESS_COOKIE_OPTIONS = {
 };
 
 const signUpController = asyncHandler(async (req, res) => {
-  const { name, email, password } = req.body;
-  const user = await register({ name, email, password });
+  const { name, email, password, organizationName } = req.body;
+  const user = await register({ name, email, password, organizationName });
   return success(res, user, "User registered successfully", 201);
 });
 

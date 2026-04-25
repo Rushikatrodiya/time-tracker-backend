@@ -5,7 +5,13 @@ const {
   getPagination,
 } = require("../../utils/pagination");
 
-const createProject = async ({ name, description, status, ownerId }) => {
+const createProject = async ({
+  name,
+  description,
+  status,
+  ownerId,
+  organizationId,
+}) => {
   if (!name) {
     throw new AppError("Project name is required", 400);
   }
@@ -24,16 +30,19 @@ const createProject = async ({ name, description, status, ownerId }) => {
       description,
       status: status || "ACTIVE",
       ownerId,
+      organizationId,
     },
   });
 };
 
-const getAllProjects = async ({ ownerId, role, query }) => {
+const getAllProjects = async ({ ownerId, role, query, organizationId }) => {
   if (!ownerId || !role) {
     throw new AppError("User not authorized", 400);
   }
 
-  let where = {};
+  let where = {
+    organizationId,
+  };
   if (role != "ADMIN") {
     where = {
       ownerId,
@@ -53,7 +62,7 @@ const getAllProjects = async ({ ownerId, role, query }) => {
   ]);
 
   return {
-    data: projects,
+    projects,
     pagination: getPaginationResponse(totalProjects, page, limit),
   };
 };

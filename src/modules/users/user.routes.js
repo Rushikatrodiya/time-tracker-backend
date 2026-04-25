@@ -1,9 +1,13 @@
 const { Router } = require("express");
-const authMiddleware = require("../../middlewares/auth.middleware");
-const { getUserProfileController } = require("./user.controllers");
+const {
+  getUserProfileController,
+  getAllUsersController,
+} = require("./user.controllers");
+const roleMiddleware = require("../../middlewares/role.middleware");
 
 const router = Router();
 
-router.get("/me", authMiddleware, getUserProfileController);
+router.get("/me", getUserProfileController);
+router.get("/", roleMiddleware("MANAGER", "ADMIN"), getAllUsersController);
 
 module.exports = router;

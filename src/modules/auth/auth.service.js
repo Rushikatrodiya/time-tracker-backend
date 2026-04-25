@@ -4,8 +4,8 @@ const AppError = require("../../utils/AppError");
 const { redisClient } = require("../../config/redis");
 const { generateAccessToken, generateRefreshToken } = require("./token.util");
 
-const register = async ({ name, email, password }) => {
-  if (!name || !email || !password) {
+const register = async ({ name, email, password, organizationName }) => {
+  if (!name || !email || !password || !organizationName) {
     throw new AppError("All fields are required", 400);
   }
 
@@ -17,21 +17,34 @@ const register = async ({ name, email, password }) => {
 
   const hashedPassword = await hashPassword(password);
 
-  const user = await prisma.user.create({
-    data: {
-      name,
-      email,
-      password: hashedPassword,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-    },
+  const result = await prisma.$transaction(async (tx) => {
+    const organization = await tx.organization.create({
+      data: {
+        name: organizationName,
+      },
+    });
+
+    const user = await tx.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role: "ADMIN",
+        organizationId: organization.id,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        organizationId: true,
+      },
+    });
+
+    return user;
   });
 
-  return user;
+  return result;
 };
 
 const signIn = async ({ email, password }) => {
@@ -52,6 +65,7 @@ const signIn = async ({ email, password }) => {
     name: user.name,
     email: user.email,
     role: user.role,
+    organizationId: user.organizationId,
   };
 
   const accessToken = generateAccessToken(payload);
@@ -68,14 +82,19 @@ const signIn = async ({ email, password }) => {
 
 const refresh = async (refreshToken) => {
   const userId = await redisClient.get(`refreshToken:${refreshToken}`);
-
   if (!userId) {
     throw new AppError("Invalid refresh token", 401);
   }
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, role: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      organizationId: true,
+    },
   });
 
   if (!user) {
@@ -89,6 +108,7 @@ const refresh = async (refreshToken) => {
     name: user.name,
     email: user.email,
     role: user.role,
+    organizationId: user.organizationId,
   };
 
   const newAccessToken = generateAccessToken(payload);

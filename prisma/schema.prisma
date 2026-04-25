@@ -7,6 +7,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Organization {
+  id        BigInt   @id @default(autoincrement())
+  name      String
+  createdAt DateTime @default(now())
+  users     User[]
+  projects  Project[]
+}
+
 model User {
   id        BigInt   @id @default(autoincrement())
   
@@ -15,8 +23,13 @@ model User {
   password  String
   role      Role     @default(USER)
   createdAt DateTime @default(now())
+  
+  organizationId BigInt?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  
   projects  Project[] @relation("ProjectOwner")
-  tasks     Task[]    @relation("TaskAssignee")
+  assignedTasks TaskAssignment[] @relation("TaskAssignee")
+  createdAssignments TaskAssignment[] @relation("AssignmentCreator")
   timeLogs  TimeLog[]
 }
 
@@ -26,6 +39,9 @@ model Project {
   description String?
   status      ProjectStatus @default(ACTIVE)
   createdAt   DateTime      @default(now())
+  
+  organizationId BigInt?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 
   ownerId   BigInt
   owner     User     @relation("ProjectOwner", fields: [ownerId], references: [id])
@@ -43,10 +59,25 @@ model Task {
   projectId   BigInt
   project     Project  @relation(fields: [projectId], references: [id])
 
-  assignedToId BigInt?
-  assignedTo   User?   @relation("TaskAssignee", fields: [assignedToId], references: [id])
-
+  assignments TaskAssignment[]
   timeLogs    TimeLog[]
+}
+
+model TaskAssignment {
+  id        BigInt   @id @default(autoincrement())
+  taskId    BigInt
+  userId    BigInt
+  assignedAt DateTime @default(now())
+  assignedBy BigInt
+  
+  task      Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User @relation("TaskAssignee", fields: [userId], references: [id], onDelete: Cascade)
+  assigner  User @relation("AssignmentCreator", fields: [assignedBy], references: [id])
+  
+  @@unique([taskId, userId])
+  @@index([taskId])
+  @@index([userId])
+  @@index([assignedBy])
 }
 
 model TimeLog {
@@ -54,6 +85,7 @@ model TimeLog {
   startTime DateTime @default(now())
   endTime   DateTime?
   duration  Int?
+  title     String?
 
   userId    BigInt
   user      User     @relation(fields: [userId], references: [id])
@@ -62,6 +94,8 @@ model TimeLog {
   task      Task     @relation(fields: [taskId], references: [id])
 
   createdAt DateTime @default(now())
+
+  @@index([userId, taskId])
 }
 
 enum Role {
