@@ -23,7 +23,7 @@ app.use(cookieParser());
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use("/auth", authRoutes);
-app.use("/users", userRoutes);
+app.use("/users", authMiddleware, userRoutes);
 app.use("/projects", authMiddleware, projectRoutes);
 app.use("/tasks", authMiddleware, taskRoutes);
 app.use("/timelogs", authMiddleware, timeLogRoutes);

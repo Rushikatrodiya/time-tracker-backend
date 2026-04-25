@@ -5,8 +5,8 @@ const {
   getCursorPagination,
 } = require("../../utils/cursorPagination");
 
-const createTask = async (data) => {
-  const { title, status, priority, projectId, assignedTo } = data;
+const createTask = async (data, currentUserId) => {
+  const { title, status, priority, projectId, assignedToIds = [] } = data;
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -16,36 +16,57 @@ const createTask = async (data) => {
     throw new AppError("Project not found", 404);
   }
 
-  if (assignedTo) {
-    const user = await prisma.user.findUnique({
-      where: { id: assignedTo },
+  // Validate all assigned users
+  if (assignedToIds.length > 0) {
+    const users = await prisma.user.findMany({
+      where: { id: { in: assignedToIds } },
     });
-    if (!user) {
-      throw new AppError("User not found", 404);
+    if (users.length !== assignedToIds.length) {
+      throw new AppError("One or more users not found", 404);
     }
   }
 
-  const task = await prisma.task.create({
-    data: {
-      title,
-      status,
-      priority,
-      projectId,
-      assignedToId: assignedTo,
-    },
+  // Create task with assignments in transaction
+  const result = await prisma.$transaction(async (tx) => {
+    const task = await tx.task.create({
+      data: {
+        title,
+        status,
+        priority,
+        projectId,
+      },
+    });
+
+    // Create assignments if provided
+    if (assignedToIds.length > 0) {
+      await tx.taskAssignment.createMany({
+        data: assignedToIds.map((userId) => ({
+          taskId: task.id,
+          userId,
+          assignedBy: currentUserId,
+        })),
+      });
+    }
+
+    return task;
   });
 
-  return task;
+  return result;
 };
 
-const getAllTasks = async (query) => {
+const getAllTasks = async (query, currentUserId) => {
   const { limit, cursorOption } = getCursorPagination(query);
 
   let where = {};
-
   if (query.status) {
     where.status = query.status;
   }
+
+  where.assignments = {
+    some: {
+      userId: currentUserId,
+    },
+  };
   const tasks = await prisma.task.findMany({
     ...cursorOption,
     where,
@@ -53,13 +74,19 @@ const getAllTasks = async (query) => {
       project: {
         select: { id: true, name: true },
       },
-      assignedTo: {
-        select: { id: true, name: true, email: true },
+      timeLogs: {
+        select: {
+          id: true,
+          startTime: true,
+          endTime: true,
+          duration: true,
+          title: true,
+        },
       },
     },
   });
 
-  return { data: tasks, pagination: getCursorPaginationResponse(tasks, limit) };
+  return { tasks, pagination: getCursorPaginationResponse(tasks, limit) };
 };
 
 const getTaskById = async (id) => {

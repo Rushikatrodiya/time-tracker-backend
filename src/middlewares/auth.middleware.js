@@ -4,7 +4,6 @@ const { verifyAccessToken } = require("../modules/auth/token.util");
 const authMiddleWare = (req, res, next) => {
   try {
     const token = req.cookies.accessToken;
-    console.log(token, "====token====");
 
     if (!token) {
       throw new AppError("Unauthorized", 401);
