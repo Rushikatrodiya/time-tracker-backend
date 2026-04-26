@@ -26,11 +26,16 @@ model User {
   
   organizationId BigInt?
   organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  managerId   BigInt?
+  manager     User?         @relation("ManagerToUser", fields: [managerId], references: [id])
+  teamMembers User[]        @relation("ManagerToUser")
+
   
-  projects  Project[] @relation("ProjectOwner")
-  assignedTasks TaskAssignment[] @relation("TaskAssignee")
-  createdAssignments TaskAssignment[] @relation("AssignmentCreator")
-  timeLogs  TimeLog[]
+  projects           Project[]          @relation("ProjectOwner")
+  assignedTasks      TaskAssignment[]   @relation("TaskAssignee")
+  createdAssignments TaskAssignment[]   @relation("AssignmentCreator")
+  timeLogs           TimeLog[]
 }
 
 model Project {

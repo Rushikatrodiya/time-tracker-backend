@@ -61,6 +61,7 @@ const signOutController = asyncHandler(async (req, res) => {
   }
 
   res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
+  res.clearCookie("accessToken", ACCESS_COOKIE_OPTIONS);
 
   return success(res, null, "Logged out successfully", 200);
 });
