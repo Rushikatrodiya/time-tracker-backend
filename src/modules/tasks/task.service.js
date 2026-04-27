@@ -126,32 +126,12 @@ const updateTask = async (role, data, id) => {
     throw new AppError("task not found", 404);
   }
 
-  if (role === "USER") {
-    if (task.assignedToId !== id) {
-      throw new AppError("You are not authorized to update this task", 403);
-    }
-    return await prisma.task.update({
-      where: { id },
-      data: { status: data.status },
-    });
-  }
-
-  if (data.assignedToId) {
-    const user = await prisma.user.findUnique({
-      where: { id: data.assignedToId },
-    });
-    if (!user) {
-      throw new AppError("User not found", 404);
-    }
-  }
-
   return await prisma.task.update({
     where: { id },
     data: {
       title: data.title,
       priority: data.priority,
       status: data.status,
-      assignedToId: data?.assignedToId ? data.assignedToId : null,
     },
   });
 };

@@ -23,7 +23,7 @@ router.post(
   createTaskController,
 );
 router.get("/", validate(getTasksQuerySchema, "query"), getAllTaskController);
-router.put("/:id", validate(updateTaskSchema), updateTaskController);
+router.patch("/:id", validate(updateTaskSchema), updateTaskController);
 router.get("/:id", getTaskByIdController);
 router.delete("/:id", roleMiddleware("ADMIN", "MANAGER"), deleteTaskController);
 
