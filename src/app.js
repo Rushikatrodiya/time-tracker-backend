@@ -6,6 +6,7 @@ const projectRoutes = require("./modules/projects/project.routes");
 const taskRoutes = require("./modules/tasks/task.routes");
 const timeLogRoutes = require("./modules/timelogs/timelogs.routes");
 const teamRoutes = require("./modules/team/team.routes");
+const projectMembersRoutes = require("./modules/project-members/project-members.routes");
 const cookieParser = require("cookie-parser");
 const errorMiddleware = require("./middlewares/error.middleware");
 const authMiddleware = require("./middlewares/auth.middleware");
@@ -29,6 +30,7 @@ app.use("/projects", authMiddleware, projectRoutes);
 app.use("/tasks", authMiddleware, taskRoutes);
 app.use("/timelogs", authMiddleware, timeLogRoutes);
 app.use("/team", authMiddleware, teamRoutes);
+app.use("/project-members", authMiddleware, projectMembersRoutes);
 
 app.use(errorMiddleware);
 

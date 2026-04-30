@@ -24,14 +24,26 @@ const createProject = async ({
     throw new AppError("Status must be either 'ACTIVE' or 'ARCHIVED'", 400);
   }
 
-  return await prisma.project.create({
-    data: {
-      name,
-      description,
-      status: status || "ACTIVE",
-      ownerId,
-      organizationId,
-    },
+  return await prisma.$transaction(async (tx) => {
+    const project = await tx.project.create({
+      data: {
+        name,
+        description,
+        status: status || "ACTIVE",
+        ownerId,
+        organizationId,
+      },
+    });
+
+    // Auto-add owner to project membership
+    await tx.projectMembership.create({
+      data: {
+        projectId: project.id,
+        userId: ownerId,
+      },
+    });
+
+    return project;
   });
 };
 

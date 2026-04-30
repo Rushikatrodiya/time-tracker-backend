@@ -18,11 +18,14 @@ const createTask = async (data, currentUserId) => {
 
   // Validate all assigned users
   if (assignedToIds.length > 0) {
-    const users = await prisma.user.findMany({
-      where: { id: { in: assignedToIds } },
+    const memberships = await prisma.projectMembership.findMany({
+      where: { projectId, userId: { in: assignedToIds } },
     });
-    if (users.length !== assignedToIds.length) {
-      throw new AppError("One or more users not found", 404);
+    if (memberships.length !== assignedToIds.length) {
+      throw new AppError(
+        "One or more users are not members of this project",
+        403,
+      );
     }
   }
 
@@ -34,6 +37,7 @@ const createTask = async (data, currentUserId) => {
         status,
         priority,
         projectId,
+        createdBy: currentUserId,
       },
     });
 
@@ -74,6 +78,9 @@ const getAllTasks = async (query, currentUserId) => {
       project: {
         select: { id: true, name: true },
       },
+      creator: {
+        select: { id: true, name: true },
+      },
       timeLogs: {
         select: {
           id: true,
@@ -98,6 +105,9 @@ const getTaskById = async (id) => {
           id: true,
           name: true,
         },
+      },
+      creator: {
+        select: { id: true, name: true, email: true },
       },
       assignedTo: {
         select: {
