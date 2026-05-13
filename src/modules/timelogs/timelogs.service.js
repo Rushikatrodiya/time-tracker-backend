@@ -265,7 +265,11 @@ const deleteTimeLog = async (timeLogId) => {
   }
 
   const assignment = await prisma.taskAssignment.findFirst({
-    where: { userId: timeLog.userId, taskId: timeLog.taskId },
+    where: {
+      userId: timeLog.userId,
+      taskId: timeLog.taskId,
+      task: { deletedAt: null },
+    },
   });
 
   if (!assignment) {

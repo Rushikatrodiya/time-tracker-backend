@@ -4,7 +4,7 @@ const AppError = require("../../utils/AppError");
 const addProjectMember = async (projectId, userId) => {
   // Check if already a member
   const existingMember = await prisma.projectMembership.findFirst({
-    where: { projectId, userId },
+    where: { projectId, userId, leftAt: null },
   });
 
   if (existingMember) {
@@ -32,7 +32,7 @@ const removeProjectMember = async (
     throw new AppError("You cannot remove yourself from the project", 400);
   }
   const member = await prisma.projectMembership.findFirst({
-    where: { projectId, userId },
+    where: { projectId, userId, leftAt: null },
   });
 
   if (!member) {
@@ -50,8 +50,9 @@ const removeProjectMember = async (
     }
   }
 
-  await prisma.projectMembership.delete({
+  await prisma.projectMembership.update({
     where: { id: member.id },
+    data: { leftAt: new Date() },
   });
 
   return { message: "Member removed successfully" };
@@ -59,7 +60,7 @@ const removeProjectMember = async (
 
 const getProjectMembers = async (projectId) => {
   const members = await prisma.projectMembership.findMany({
-    where: { projectId },
+    where: { projectId, leftAt: null },
     include: {
       user: {
         select: {

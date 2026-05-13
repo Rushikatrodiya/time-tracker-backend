@@ -19,7 +19,7 @@ const createTask = async (data, currentUserId) => {
   // Validate all assigned users
   if (assignedToIds.length > 0) {
     const memberships = await prisma.projectMembership.findMany({
-      where: { projectId, userId: { in: assignedToIds } },
+      where: { projectId, userId: { in: assignedToIds }, leftAt: null },
     });
     if (memberships.length !== assignedToIds.length) {
       throw new AppError(
@@ -61,7 +61,9 @@ const createTask = async (data, currentUserId) => {
 const getAllTasks = async (query, currentUserId) => {
   const { limit, cursorOption } = getCursorPagination(query);
 
-  let where = {};
+  let where = {
+    deletedAt: null,
+  };
   if (query.status) {
     where.status = query.status;
   }
@@ -98,7 +100,7 @@ const getAllTasks = async (query, currentUserId) => {
 
 const getTaskById = async (id) => {
   const task = await prisma.task.findMany({
-    where: { id },
+    where: { id, deletedAt: null },
     include: {
       project: {
         select: {
@@ -129,7 +131,7 @@ const updateTask = async (role, data, id) => {
   }
 
   const task = await prisma.task.findUnique({
-    where: { id },
+    where: { id, deletedAt: null },
   });
 
   if (!task) {
@@ -148,13 +150,14 @@ const updateTask = async (role, data, id) => {
 
 const deleteTask = async (id) => {
   const task = await prisma.task.findUnique({
-    where: { id },
+    where: { id, deletedAt: null },
   });
 
   if (!task) throw new AppError("Task not found", 404);
 
-  return await prisma.task.delete({
+  return await prisma.task.update({
     where: { id },
+    data: { deletedAt: new Date() },
   });
 };
 
