@@ -13,29 +13,33 @@ services:
       - /app/node_modules
     command: ["npm", "run", "dev"]
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_started
     networks:
       - time-tracker-network
-  mysql:
-    image: mysql:8.0
-    container_name: mysql
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
     restart: always
     ports:
-      - "3307:3306"
-    env_file:
-      - .env
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - time-tracker-network
+
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -46,9 +50,11 @@ services:
       - redis_data:/data
     networks:
       - time-tracker-network
+
 volumes:
-  mysql_data:
+  postgres_data:
   redis_data:
+
 networks:
   time-tracker-network:
     driver: bridge
