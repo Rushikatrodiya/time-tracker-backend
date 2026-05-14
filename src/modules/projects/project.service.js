@@ -5,7 +5,13 @@ const {
   getPagination,
 } = require("../../utils/pagination");
 
-const createProject = async ({ name, description, status, ownerId }) => {
+const createProject = async ({
+  name,
+  description,
+  status,
+  ownerId,
+  organizationId,
+}) => {
   if (!name) {
     throw new AppError("Project name is required", 400);
   }
@@ -18,43 +24,74 @@ const createProject = async ({ name, description, status, ownerId }) => {
     throw new AppError("Status must be either 'ACTIVE' or 'ARCHIVED'", 400);
   }
 
-  return await prisma.project.create({
-    data: {
-      name,
-      description,
-      status: status || "ACTIVE",
-      ownerId,
-    },
+  return await prisma.$transaction(async (tx) => {
+    const project = await tx.project.create({
+      data: {
+        name,
+        description,
+        status: status || "ACTIVE",
+        ownerId,
+        organizationId,
+      },
+    });
+
+    // Auto-add owner to project membership
+    await tx.projectMembership.create({
+      data: {
+        projectId: project.id,
+        userId: ownerId,
+      },
+    });
+
+    return project;
   });
 };
 
-const getAllProjects = async ({ ownerId, role, query }) => {
+const getAllProjects = async ({ ownerId, role, organizationId, query }) => {
   if (!ownerId || !role) {
     throw new AppError("User not authorized", 400);
   }
 
-  let where = {};
-  if (role != "ADMIN") {
-    where = {
-      ownerId,
-    };
+  let where = { organizationId };
+  if (role !== "ADMIN") {
+    where = { ownerId };
   }
-  const { page, limit, offset } = getPagination(query);
 
-  const [projects, totalProjects] = await prisma.$transaction([
+  // Add pagination
+  const { page, limit, skip } = getPagination(query);
+
+  const [projects, total] = await Promise.all([
     prisma.project.findMany({
       where,
-      skip: offset,
+      skip,
       take: limit,
+      include: {
+        memberships: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, role: true },
+            },
+          },
+        },
+        owner: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+      },
     }),
-    prisma.project.count({
-      where,
-    }),
+    prisma.project.count({ where }),
   ]);
 
   return {
-    data: projects,
-    pagination: getPaginationResponse(totalProjects, page, limit),
+    projects: projects.map((project) => ({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      status: project.status,
+      createdAt: project.createdAt,
+      owner: project.owner,
+      memberCount: project.memberships.length,
+    })),
+    pagination: getPaginationResponse(page, limit, total),
   };
 };
 

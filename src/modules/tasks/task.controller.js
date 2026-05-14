@@ -9,13 +9,15 @@ const {
 } = require("./task.service");
 
 const createTaskController = asyncHandler(async (req, res) => {
-  const task = await createTask(req.body);
+  const { id: currentUserId } = req.user;
+  const task = await createTask(req.body, currentUserId);
   return success(res, task, "Task created successfully");
 });
 
 const getAllTaskController = asyncHandler(async (req, res) => {
+  const { id } = req.user;
   const query = req.query;
-  const tasks = await getAllTasks(query);
+  const tasks = await getAllTasks(query, id);
   return success(res, tasks, "Tasks fetched successfully");
 });
 

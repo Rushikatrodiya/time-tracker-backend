@@ -3,8 +3,16 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        BigInt   @id @default(autoincrement())
+  name      String
+  createdAt DateTime @default(now())
+  users     User[]
+  projects  Project[]
 }
 
 model User {
@@ -15,9 +23,21 @@ model User {
   password  String
   role      Role     @default(USER)
   createdAt DateTime @default(now())
-  projects  Project[] @relation("ProjectOwner")
-  tasks     Task[]    @relation("TaskAssignee")
-  timeLogs  TimeLog[]
+  
+  organizationId BigInt?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  managerId   BigInt?
+  manager     User?         @relation("ManagerToUser", fields: [managerId], references: [id])
+  teamMembers User[]        @relation("ManagerToUser")
+
+  
+  projectMemberships ProjectMembership[]
+  projects           Project[]          @relation("ProjectOwner")
+  assignedTasks      TaskAssignment[]   @relation("TaskAssignee")
+  createdAssignments TaskAssignment[]   @relation("AssignmentCreator")
+  timeLogs           TimeLog[]
+  createdTasks       Task[]             @relation("TaskCreator")
 }
 
 model Project {
@@ -26,6 +46,11 @@ model Project {
   description String?
   status      ProjectStatus @default(ACTIVE)
   createdAt   DateTime      @default(now())
+  
+  organizationId BigInt?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  memberships ProjectMembership[]
 
   ownerId   BigInt
   owner     User     @relation("ProjectOwner", fields: [ownerId], references: [id])
@@ -33,20 +58,53 @@ model Project {
   tasks     Task[]
 }
 
+model ProjectMembership {
+  id        BigInt     @id @default(autoincrement())
+  projectId BigInt
+  userId    BigInt
+  joinedAt  DateTime   @default(now())
+  leftAt    DateTime?
+  updatedAt DateTime @default(now()) @updatedAt
+  role      String?
+
+  project   Project  @relation(fields: [projectId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId])
+}
 model Task {
-  id          BigInt   @id @default(autoincrement())
+  id          BigInt     @id @default(autoincrement())
   title       String
   status      TaskStatus @default(TODO)
-  priority    Int
-  createdAt   DateTime @default(now())
+  priority    Int @default(2)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  deletedAt   DateTime?
+  createdBy   BigInt?
+  creator     User? @relation("TaskCreator", fields: [createdBy], references: [id])
 
   projectId   BigInt
   project     Project  @relation(fields: [projectId], references: [id])
 
-  assignedToId BigInt?
-  assignedTo   User?   @relation("TaskAssignee", fields: [assignedToId], references: [id])
-
+  assignments TaskAssignment[]
   timeLogs    TimeLog[]
+}
+
+model TaskAssignment {
+  id        BigInt   @id @default(autoincrement())
+  taskId    BigInt
+  userId    BigInt
+  assignedAt DateTime @default(now())
+  assignedBy BigInt
+  
+  task      Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User @relation("TaskAssignee", fields: [userId], references: [id], onDelete: Cascade)
+  assigner  User @relation("AssignmentCreator", fields: [assignedBy], references: [id])
+  
+  @@unique([taskId, userId])
+  @@index([taskId])
+  @@index([userId])
+  @@index([assignedBy])
 }
 
 model TimeLog {
@@ -54,6 +112,7 @@ model TimeLog {
   startTime DateTime @default(now())
   endTime   DateTime?
   duration  Int?
+  title     String?
 
   userId    BigInt
   user      User     @relation(fields: [userId], references: [id])
@@ -62,6 +121,8 @@ model TimeLog {
   task      Task     @relation(fields: [taskId], references: [id])
 
   createdAt DateTime @default(now())
+
+  @@index([userId, taskId])
 }
 
 enum Role {
