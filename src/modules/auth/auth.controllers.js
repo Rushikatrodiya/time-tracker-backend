@@ -5,15 +5,15 @@ const { register, signIn, refresh, signOut } = require("./auth.service");
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "strict",
+  sameSite: "none",
   maxAge: Number(process.env.REFRESH_TOKEN_EXPIRY) * 1000,
 };
 
 const ACCESS_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "strict",
-  maxAge: 15 * 60 * 1000, // 15 minutes
+  sameSite: "none",
+  maxAge: 15 * 60 * 1000,
 };
 
 const signUpController = asyncHandler(async (req, res) => {
