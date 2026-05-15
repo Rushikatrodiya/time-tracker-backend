@@ -12,6 +12,4 @@ COPY . .
 
 RUN npx prisma generate
 
-RUN npx prisma migrate deploy
-
 CMD ["npm", "start"]
