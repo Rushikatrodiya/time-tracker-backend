@@ -16,7 +16,10 @@ const swaggerSpec = require("./config/swagger");
 const app = express();
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: [
+      "http://localhost:3000",
+      "https://time-tracker-frontend-sooty.vercel.app",
+    ],
     credentials: true,
   }),
 );
