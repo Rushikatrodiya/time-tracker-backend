@@ -5,14 +5,14 @@ const { register, signIn, refresh, signOut } = require("./auth.service");
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "none",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   maxAge: Number(process.env.REFRESH_TOKEN_EXPIRY) * 1000,
 };
 
 const ACCESS_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "none",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   maxAge: 15 * 60 * 1000,
 };
 
