@@ -3,10 +3,11 @@ const { createProject, getAllProjects } = require("./project.service");
 const { success } = require("../../utils/response");
 
 const createProjectController = asyncHandler(async (req, res) => {
-  const { name, description, status } = req.body;
+  const { name, projectKey, description, status } = req.body;
   const { id, organizationId } = req.user;
   const project = await createProject({
     name,
+    projectKey,
     description,
     status,
     ownerId: id,

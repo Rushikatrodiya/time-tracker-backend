@@ -6,7 +6,14 @@ const {
 } = require("../../utils/cursorPagination");
 
 const createTask = async (data, currentUserId) => {
-  const { title, status, priority, projectId, assignedToIds = [] } = data;
+  const {
+    title,
+    status,
+    priority,
+    projectId,
+    taskType,
+    assignedToIds = [],
+  } = data;
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -31,11 +38,19 @@ const createTask = async (data, currentUserId) => {
 
   // Create task with assignments in transaction
   const result = await prisma.$transaction(async (tx) => {
+    // Increment lastTicketNumber
+    const updatedProject = await tx.project.update({
+      where: { id: projectId },
+      data: { lastTicketNumber: { increment: 1 } },
+    });
+
     const task = await tx.task.create({
       data: {
         title,
+        ticketNumber: updatedProject.lastTicketNumber,
         status,
         priority,
+        taskType: taskType || "TASK",
         projectId,
         createdBy: currentUserId,
       },
@@ -58,7 +73,7 @@ const createTask = async (data, currentUserId) => {
   return result;
 };
 
-const getAllTasks = async (query, currentUserId) => {
+const getAllTasks = async (query, currentUserId, userRole) => {
   const { limit, cursorOption } = getCursorPagination(query);
 
   let where = {
@@ -68,17 +83,19 @@ const getAllTasks = async (query, currentUserId) => {
     where.status = query.status;
   }
 
-  where.assignments = {
-    some: {
-      userId: currentUserId,
-    },
-  };
+  if (userRole !== "ADMIN") {
+    where.assignments = {
+      some: {
+        userId: currentUserId,
+      },
+    };
+  }
   const tasks = await prisma.task.findMany({
     ...cursorOption,
     where,
     include: {
       project: {
-        select: { id: true, name: true },
+        select: { id: true, name: true, projectKey: true },
       },
       creator: {
         select: { id: true, name: true },

@@ -7,27 +7,21 @@ const {
 
 const createProject = async ({
   name,
+  projectKey,
   description,
   status,
   ownerId,
   organizationId,
 }) => {
-  if (!name) {
-    throw new AppError("Project name is required", 400);
-  }
-
   if (!ownerId) {
     throw new AppError("Owner ID is required", 400);
-  }
-
-  if (status && status !== "ACTIVE" && status !== "ARCHIVED") {
-    throw new AppError("Status must be either 'ACTIVE' or 'ARCHIVED'", 400);
   }
 
   return await prisma.$transaction(async (tx) => {
     const project = await tx.project.create({
       data: {
         name,
+        projectKey: projectKey.toUpperCase(),
         description,
         status: status || "ACTIVE",
         ownerId,

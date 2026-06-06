@@ -15,9 +15,9 @@ const createTaskController = asyncHandler(async (req, res) => {
 });
 
 const getAllTaskController = asyncHandler(async (req, res) => {
-  const { id } = req.user;
+  const { id, role } = req.user;
   const query = req.query;
-  const tasks = await getAllTasks(query, id);
+  const tasks = await getAllTasks(query, id, role);
   return success(res, tasks, "Tasks fetched successfully");
 });
 

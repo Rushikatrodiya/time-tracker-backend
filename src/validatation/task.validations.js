@@ -8,6 +8,7 @@ const createTaskSchema = z.object({
   status: z.enum(["TODO", "IN_PROGRESS", "DONE"]).optional(),
   priority: z.number().optional(),
   dueDate: z.date().optional(),
+  taskType: z.enum(["TASK", "BUG", "FEAT", "IMPR"]).optional(),
 });
 
 const updateTaskSchema = z.object({
