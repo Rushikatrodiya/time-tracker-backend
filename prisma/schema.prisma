@@ -44,7 +44,9 @@ model Project {
   id          BigInt        @id @default(autoincrement())
   name        String
   description String?
+  projectKey  String        @unique
   status      ProjectStatus @default(ACTIVE)
+  lastTicketNumber Int       @default(0)
   createdAt   DateTime      @default(now())
   
   organizationId BigInt?
@@ -75,7 +77,9 @@ model ProjectMembership {
 model Task {
   id          BigInt     @id @default(autoincrement())
   title       String
+  ticketNumber Int
   status      TaskStatus @default(TODO)
+  taskType    TaskType   @default(TASK)
   priority    Int @default(2)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime  @default(now()) @updatedAt
@@ -140,4 +144,11 @@ enum TaskStatus {
   TODO
   IN_PROGRESS
   DONE
+}
+
+enum TaskType {
+  TASK
+  BUG
+  FEAT
+  IMPR
 }
