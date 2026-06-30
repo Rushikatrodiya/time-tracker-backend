@@ -73,73 +73,58 @@ const createTask = async (data, currentUserId) => {
   return result;
 };
 
-const getAllTasks = async (query, currentUserId, userRole) => {
+
+const getTasksByProject = async (projectId, query, currentUserId, userRole) => {
+  // Check if user is part of the project (skip for ADMIN)
+  if (userRole !== "ADMIN") {
+    const isMember = await prisma.projectMembership.findFirst({
+      where: {
+        projectId: BigInt(projectId),
+        userId: currentUserId,
+        leftAt: null,
+      },
+    });
+
+    if (!isMember) {
+      throw new AppError("You do not have access to this project", 403);
+    }
+  }
+
   const { limit, cursorOption } = getCursorPagination(query);
 
-  let where = {
+  const where = {
     deletedAt: null,
+    projectId: BigInt(projectId),
+    ...(query.status && { status: query.status }),
+    ...(userRole === "USER" && {
+      assignments: { some: { userId: currentUserId } },
+    }),
   };
-  if (query.status) {
-    where.status = query.status;
-  }
 
-  if (userRole !== "ADMIN") {
-    where.assignments = {
-      some: {
-        userId: currentUserId,
-      },
-    };
-  }
   const tasks = await prisma.task.findMany({
     ...cursorOption,
     where,
-    include: {
-      project: {
-        select: { id: true, name: true, projectKey: true },
-      },
-      creator: {
-        select: { id: true, name: true },
-      },
-      timeLogs: {
-        select: {
-          id: true,
-          startTime: true,
-          endTime: true,
-          duration: true,
-          title: true,
+    select: {
+      id: true,
+      title: true,
+      ticketNumber: true,
+      status: true,
+      priority: true,
+      createdAt: true,
+      project: { select: { projectKey: true } },
+      creator: { select: { name: true } },
+      ...(userRole === "ADMIN" && {
+        assignments: {
+          select: { user: { select: { id: true, name: true } } },
         },
+      }),
+      timeLogs: {
+        select: { duration: true },
       },
     },
   });
 
   return { tasks, pagination: getCursorPaginationResponse(tasks, limit) };
-};
-
-const getTaskById = async (id) => {
-  const task = await prisma.task.findMany({
-    where: { id, deletedAt: null },
-    include: {
-      project: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      creator: {
-        select: { id: true, name: true, email: true },
-      },
-      assignedTo: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
-    },
-  });
-
-  if (!task) throw new AppError("Task not found", 404);
-  return task;
 };
 
 const updateTask = async (role, data, id) => {
@@ -172,16 +157,23 @@ const deleteTask = async (id) => {
 
   if (!task) throw new AppError("Task not found", 404);
 
-  return await prisma.task.update({
-    where: { id },
-    data: { deletedAt: new Date() },
+  await prisma.$transaction(async (tx) => {
+    await tx.timeLog.deleteMany({
+      where: { taskId: id },
+    });
+
+    await tx.task.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   });
+
+  return { message: "Task deleted successfully" };
 };
 
 module.exports = {
   createTask,
-  getAllTasks,
   updateTask,
   deleteTask,
-  getTaskById,
+  getTasksByProject
 };

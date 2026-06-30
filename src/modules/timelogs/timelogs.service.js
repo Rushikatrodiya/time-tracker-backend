@@ -57,13 +57,15 @@ const endTime = async (userId) => {
   return timeLog;
 };
 
-const getTaskTimeLogs = async (userId, taskId) => {
+const getTaskTimeLogs = async (userId, taskId, role) => {
+  const whereClause = {
+    taskId,
+    ...(role === 'ADMIN' ? {} : { userId }),
+  };
+
   const [timeLogs, totalDurationResult] = await Promise.all([
     prisma.timeLog.findMany({
-      where: {
-        taskId,
-        userId,
-      },
+      where: whereClause,
       select: {
         id: true,
         startTime: true,
@@ -74,8 +76,7 @@ const getTaskTimeLogs = async (userId, taskId) => {
     }),
     prisma.timeLog.aggregate({
       where: {
-        taskId,
-        userId,
+        ...whereClause,
         duration: { not: null },
       },
       _sum: {
@@ -90,12 +91,14 @@ const getTaskTimeLogs = async (userId, taskId) => {
   };
 };
 
-const getAllTasksTotalDuration = async (userId) => {
+const getAllTasksTotalDuration = async (userId, role) => {
   // Get completed tasks with total durations
+  const userFilter = role === 'ADMIN' ? {} : { userId };
+
   const completedResults = await prisma.timeLog.groupBy({
     by: ["taskId"],
     where: {
-      userId,
+      ...userFilter,
       endTime: { not: null },
       duration: { not: null },
     },
@@ -156,27 +159,6 @@ const getAllTasksTotalDuration = async (userId) => {
   };
 };
 
-const getAllTimelogs = async (user) => {
-  let where = {};
-
-  if (user.role !== "ADMIN") {
-    where = {
-      userId: user.id,
-    };
-  }
-
-  return await prisma.timeLog.findMany({
-    where,
-    include: {
-      task: {
-        select: { id: true, title: true },
-      },
-      user: {
-        select: { id: true, name: true, email: true },
-      },
-    },
-  });
-};
 
 const upateTaskTimeLog = async (
   timeLogId,
@@ -291,7 +273,6 @@ const deleteTimeLog = async (timeLogId) => {
 module.exports = {
   startTimer,
   endTime,
-  getAllTimelogs,
   getTaskTimeLogs,
   getAllTasksTotalDuration,
   upateTaskTimeLog,

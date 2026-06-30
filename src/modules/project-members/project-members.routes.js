@@ -8,6 +8,7 @@ const {
   addProjectMemberController,
   removeProjectMemberController,
   getProjectMembersController,
+  getFilteredProjectMembersController,
 } = require("./project-members.controller");
 const validate = require("../../middlewares/validate.middleware");
 
@@ -18,7 +19,7 @@ const {
 const router = Router();
 
 router.post(
-  "/:id/members",
+  "/:id",
   roleMiddleware("MANAGER", "ADMIN"),
   validateSameOrganization,
   validate(addProjectMemberSchema),
@@ -32,9 +33,15 @@ router.delete(
 );
 
 router.get(
-  "/:id/members",
+  "/:id",
   roleMiddleware("MANAGER", "ADMIN"),
   getProjectMembersController,
+);
+
+router.get(
+  "/:id/filtered",
+  roleMiddleware("MANAGER", "ADMIN"),
+  getFilteredProjectMembersController,
 );
 
 module.exports = router;

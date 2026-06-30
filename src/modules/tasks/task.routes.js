@@ -2,10 +2,9 @@ const { Router } = require("express");
 const roleMiddleware = require("../../middlewares/role.middleware");
 const {
   createTaskController,
-  getAllTaskController,
   updateTaskController,
   deleteTaskController,
-  getTaskByIdController,
+  getAllTaskByProjectController
 } = require("./task.controller");
 const validate = require("../../middlewares/validate.middleware");
 const {
@@ -22,9 +21,8 @@ router.post(
   validate(createTaskSchema),
   createTaskController,
 );
-router.get("/", validate(getTasksQuerySchema, "query"), getAllTaskController);
+router.get("/:id", validate(getTasksQuerySchema, "query"), getAllTaskByProjectController)
 router.patch("/:id", validate(updateTaskSchema), updateTaskController);
-router.get("/:id", getTaskByIdController);
 router.delete("/:id", roleMiddleware("ADMIN", "MANAGER"), deleteTaskController);
 
 module.exports = router;
