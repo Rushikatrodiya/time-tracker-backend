@@ -1,6 +1,37 @@
 const { prisma } = require("../../config/db");
 const AppError = require("../../utils/AppError");
 
+// Helper to get standard date ranges
+const getDateRanges = () => {
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+
+  const todayEnd = new Date();
+  todayEnd.setUTCHours(23, 59, 59, 999);
+
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+
+  const monthEnd = new Date();
+  monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1, 1);
+  monthEnd.setUTCHours(0, 0, 0, 0);
+
+  return { todayStart, todayEnd, monthStart, monthEnd };
+};
+
+// Helper to create a promise for aggregating time log durations
+const getDurationSumPromise = (baseWhere, gte, lt) => {
+  return prisma.timeLog.aggregate({
+    where: {
+      ...baseWhere,
+      startTime: { gte, lt },
+      duration: { not: null },
+    },
+    _sum: { duration: true },
+  });
+};
+
 // Get team dashboard with stats, team activity, and active projects
 const getTeamDashboard = async (organizationId, userId) => {
   if (!organizationId) {
@@ -8,28 +39,17 @@ const getTeamDashboard = async (organizationId, userId) => {
   }
 
   const userWhere = { organizationId };
+  const { todayStart, todayEnd, monthStart, monthEnd } = getDateRanges();
+  const timeLogWhere = { user: { is: userWhere } };
 
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
-
-  const todayEnd = new Date();
-  todayEnd.setUTCHours(23, 59, 59, 999);
-
-  const [totalProjects, teamHoursResult, runningTimers, users, activeProjects] =
+  const [totalProjects, teamHoursResult, teamMonthHoursResult, runningTimers, users, activeProjects] =
     await Promise.all([
-
       prisma.project.count({
         where: { organizationId },
       }),
 
-      prisma.timeLog.aggregate({
-        where: {
-          user: { is: userWhere },
-          startTime: { gte: todayStart, lt: todayEnd },
-          duration: { not: null },
-        },
-        _sum: { duration: true },
-      }),
+      getDurationSumPromise(timeLogWhere, todayStart, todayEnd),
+      getDurationSumPromise(timeLogWhere, monthStart, monthEnd),
 
       prisma.timeLog.count({
         where: {
@@ -68,8 +88,13 @@ const getTeamDashboard = async (organizationId, userId) => {
                   leftAt: null,
                 },
               },
+              tasks: {
+                where: {
+                  deletedAt: null,
+                },
+              },
             },
-          }
+          },
         },
       }),
     ]);
@@ -93,6 +118,7 @@ const getTeamDashboard = async (organizationId, userId) => {
     stats: {
       totalProjects,
       hoursToday: teamHoursResult._sum.duration ?? 0,
+      hoursThisMonth: teamMonthHoursResult._sum.duration ?? 0,
       runningTimers,
     },
     teamActivity,
@@ -111,13 +137,10 @@ const getUserDashboard = async (userId) => {
     throw new AppError("User ID is required", 400);
   }
 
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
+  const { todayStart, todayEnd, monthStart, monthEnd } = getDateRanges();
+  const timeLogWhere = { userId };
 
-  const todayEnd = new Date();
-  todayEnd.setUTCHours(23, 59, 59, 999);
-
-  const [myTasks, completedTasks, hoursTodayResult, assignedTasks] =
+  const [myTasks, completedTasks, hoursTodayResult, hoursThisMonthResult, assignedTasks] =
     await Promise.all([
       prisma.taskAssignment.count({ where: { userId } }),
 
@@ -125,14 +148,8 @@ const getUserDashboard = async (userId) => {
         where: { userId, task: { status: "DONE" } },
       }),
 
-      prisma.timeLog.aggregate({
-        where: {
-          userId,
-          startTime: { gte: todayStart, lt: todayEnd },
-          duration: { not: null },
-        },
-        _sum: { duration: true },
-      }),
+      getDurationSumPromise(timeLogWhere, todayStart, todayEnd),
+      getDurationSumPromise(timeLogWhere, monthStart, monthEnd),
 
       prisma.taskAssignment.findMany({
         where: { userId },
@@ -180,6 +197,7 @@ const getUserDashboard = async (userId) => {
       myTasks,
       completedTasks,
       hoursToday: hoursTodayResult._sum.duration ?? 0,
+      hoursThisMonth: hoursThisMonthResult._sum.duration ?? 0,
     },
     myTasks: Array.from(projectMap.values()),
   };

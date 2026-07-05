@@ -38,13 +38,14 @@ const getAllProjectsController = asyncHandler(async (req, res) => {
 const updateProjectController = asyncHandler(async (req, res) => {
   const { id: userId, role, organizationId } = req.user;
   const { id: projectId } = req.params;
-  const { name, description, status } = req.body;
+  const { name, description, status, projectKey } = req.body;
 
   const project = await updateProject({
     projectId,
     name,
     description,
     status,
+    projectKey,
     userId,
     role,
     organizationId,
@@ -68,7 +69,7 @@ const deleteProjectController = asyncHandler(async (req, res) => {
 const getSimpleProjectListController = asyncHandler(async (req, res) => {
   const { id: userId, role, organizationId } = req.user;
   const projects = await getSimpleProjectList({ userId, role, organizationId });
-  
+
   return success(res, projects, "Project list fetched successfully", 200);
 });
 

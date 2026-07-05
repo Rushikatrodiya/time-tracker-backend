@@ -4,6 +4,9 @@ const {
   getCursorPaginationResponse,
   getCursorPagination,
 } = require("../../utils/cursorPagination");
+const { assertProjectIsActive } = require("../projects/project.helper");
+
+
 
 const createTask = async (data, currentUserId) => {
   const {
@@ -15,13 +18,7 @@ const createTask = async (data, currentUserId) => {
     assignedToIds = [],
   } = data;
 
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-  });
-
-  if (!project) {
-    throw new AppError("Project not found", 404);
-  }
+  await assertProjectIsActive(projectId);
 
   // Validate all assigned users
   if (assignedToIds.length > 0) {
@@ -96,9 +93,16 @@ const getTasksByProject = async (projectId, query, currentUserId, userRole) => {
     deletedAt: null,
     projectId: BigInt(projectId),
     ...(query.status && { status: query.status }),
-    ...(userRole === "USER" && {
-      assignments: { some: { userId: currentUserId } },
+    ...(query.priority && { priority: parseInt(query.priority, 10) }),
+    ...(query.taskType && { taskType: query.taskType }),
+    ...(query.search && {
+      title: { contains: query.search, mode: "insensitive" },
     }),
+    ...(userRole === "USER"
+      ? { assignments: { some: { userId: currentUserId } } }
+      : query.assigneeId && {
+        assignments: { some: { userId: BigInt(query.assigneeId) } },
+      }),
   };
 
   const tasks = await prisma.task.findMany({
@@ -113,7 +117,7 @@ const getTasksByProject = async (projectId, query, currentUserId, userRole) => {
       createdAt: true,
       project: { select: { projectKey: true } },
       creator: { select: { name: true } },
-      ...(userRole === "ADMIN" && {
+      ...(userRole !== "USER" && {
         assignments: {
           select: { user: { select: { id: true, name: true } } },
         },
@@ -140,6 +144,9 @@ const updateTask = async (role, data, id) => {
     throw new AppError("task not found", 404);
   }
 
+  // Verify project status before allowing update
+  await assertProjectIsActive(task.projectId);
+
   return await prisma.task.update({
     where: { id },
     data: {
@@ -150,12 +157,19 @@ const updateTask = async (role, data, id) => {
   });
 };
 
-const deleteTask = async (id) => {
+const deleteTask = async (id, userId, role) => {
   const task = await prisma.task.findUnique({
     where: { id, deletedAt: null },
   });
 
   if (!task) throw new AppError("Task not found", 404);
+
+  // Verify project status before allowing deletion
+  await assertProjectIsActive(task.projectId);
+
+  if (role !== "ADMIN" && task.createdById !== userId) {
+    throw new AppError("You don't have permission to delete this task. Only the creator can delete it.", 403);
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.timeLog.deleteMany({
@@ -171,9 +185,56 @@ const deleteTask = async (id) => {
   return { message: "Task deleted successfully" };
 };
 
+const getTaskStatsByProject = async (projectId, currentUserId, userRole) => {
+  // Check if user is part of the project (skip for ADMIN)
+  if (userRole !== "ADMIN") {
+    const isMember = await prisma.projectMembership.findFirst({
+      where: {
+        projectId: BigInt(projectId),
+        userId: currentUserId,
+        leftAt: null,
+      },
+    });
+
+    if (!isMember) {
+      throw new AppError("You do not have access to this project", 403);
+    }
+  }
+
+  const baseWhere = {
+    deletedAt: null,
+    projectId: BigInt(projectId),
+    ...(userRole === "USER" && {
+      assignments: { some: { userId: currentUserId } },
+    }),
+  };
+
+  const [project, total, inProgress, completed] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: BigInt(projectId) },
+      select: { status: true }
+    }),
+    prisma.task.count({ where: baseWhere }),
+    prisma.task.count({ where: { ...baseWhere, status: "IN_PROGRESS" } }),
+    prisma.task.count({ where: { ...baseWhere, status: "DONE" } }),
+  ]);
+
+  if (!project) {
+    throw new AppError("Project not found", 404);
+  }
+
+  return {
+    total,
+    inProgress,
+    completed,
+    projectStatus: project.status,
+  };
+};
+
 module.exports = {
   createTask,
   updateTask,
   deleteTask,
-  getTasksByProject
+  getTasksByProject,
+  getTaskStatsByProject,
 };

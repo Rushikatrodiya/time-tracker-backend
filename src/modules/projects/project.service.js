@@ -102,6 +102,7 @@ const updateProject = async ({
   name,
   description,
   status,
+  projectKey,
   userId,
   role,
   organizationId,
@@ -128,7 +129,7 @@ const updateProject = async ({
   if (name !== undefined) updateData.name = name;
   if (description !== undefined) updateData.description = description;
   if (status !== undefined) updateData.status = status;
-
+  if (projectKey !== undefined) updateData.projectKey = projectKey.toUpperCase();
   const updatedProject = await prisma.project.update({
     where: { id: BigInt(projectId) },
     data: updateData,

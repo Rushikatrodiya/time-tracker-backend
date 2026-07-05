@@ -4,7 +4,8 @@ const {
   createTaskController,
   updateTaskController,
   deleteTaskController,
-  getAllTaskByProjectController
+  getAllTaskByProjectController,
+  getTaskStatsByProjectController,
 } = require("./task.controller");
 const validate = require("../../middlewares/validate.middleware");
 const {
@@ -21,6 +22,7 @@ router.post(
   validate(createTaskSchema),
   createTaskController,
 );
+router.get("/:id/stats", getTaskStatsByProjectController);
 router.get("/:id", validate(getTasksQuerySchema, "query"), getAllTaskByProjectController)
 router.patch("/:id", validate(updateTaskSchema), updateTaskController);
 router.delete("/:id", roleMiddleware("ADMIN", "MANAGER"), deleteTaskController);

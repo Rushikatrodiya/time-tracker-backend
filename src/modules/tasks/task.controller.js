@@ -4,7 +4,8 @@ const {
   createTask,
   updateTask,
   deleteTask,
-  getTasksByProject
+  getTasksByProject,
+  getTaskStatsByProject
 } = require("./task.service");
 
 const createTaskController = asyncHandler(async (req, res) => {
@@ -21,6 +22,13 @@ const getAllTaskByProjectController = asyncHandler(async (req, res) => {
   return success(res, tasks, "Tasks fetched successfully");
 })
 
+const getTaskStatsByProjectController = asyncHandler(async (req, res) => {
+  const { id, role } = req.user;
+  const { id: projectId } = req.params;
+  const stats = await getTaskStatsByProject(projectId, id, role);
+  return success(res, stats, "Task stats fetched successfully");
+});
+
 const updateTaskController = asyncHandler(async (req, res) => {
   const { role } = req.user;
   const data = req.body;
@@ -31,8 +39,9 @@ const updateTaskController = asyncHandler(async (req, res) => {
 
 
 const deleteTaskController = asyncHandler(async (req, res) => {
+  const { id: userId, role } = req.user;
   const { id } = req.params;
-  const task = await deleteTask(id);
+  const task = await deleteTask(id, userId, role);
   return success(res, task, "Task deleted successfully");
 });
 
@@ -41,4 +50,5 @@ module.exports = {
   updateTaskController,
   deleteTaskController,
   getAllTaskByProjectController,
+  getTaskStatsByProjectController,
 };

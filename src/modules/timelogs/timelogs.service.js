@@ -1,15 +1,23 @@
 const { prisma } = require("../../config/db");
 const AppError = require("../../utils/AppError");
+const { assertProjectIsActive } = require("../projects/project.helper");
 
 const startTimer = async (userId, taskId) => {
   const task = await prisma.task.findUnique({
     where: {
       id: taskId,
     },
+    select: {
+      title: true,
+      projectId: true,
+    }
   });
   if (!task) {
     throw new AppError("Task not found", 404);
   }
+
+  //verify project is active or not
+  await assertProjectIsActive(task.projectId);
   const activeTimer = await prisma.timeLog.findFirst({
     where: {
       userId,
@@ -93,7 +101,7 @@ const getTaskTimeLogs = async (userId, taskId, role) => {
 
 const getAllTasksTotalDuration = async (userId, role) => {
   // Get completed tasks with total durations
-  const userFilter = role === 'ADMIN' ? {} : { userId };
+  const userFilter = role === 'USER' ? { userId } : {};
 
   const completedResults = await prisma.timeLog.groupBy({
     by: ["taskId"],
@@ -185,6 +193,22 @@ const upateTaskTimeLog = async (
     throw new AppError("Not assigned to this task", 403);
   }
 
+  const task = await prisma.task.findUnique({
+    where: {
+      id: taskId,
+    },
+    select: {
+      title: true,
+      projectId: true,
+    },
+  });
+
+  if (!task) {
+    throw new AppError("Task not found", 404);
+  }
+
+  await assertProjectIsActive(task.projectId);
+
   // 3. check overlap (exclude current log)
   const overlap = await prisma.timeLog.findFirst({
     where: {
@@ -241,10 +265,31 @@ const upateTaskTimeLog = async (
 const deleteTimeLog = async (timeLogId) => {
   const timeLog = await prisma.timeLog.findUnique({
     where: { id: timeLogId },
+    select: {
+      id: true,
+      userId: true,
+      taskId: true,
+    }
   });
   if (!timeLog) {
     throw new AppError("Time log not found", 404);
   }
+
+  const task = await prisma.task.findUnique({
+    where: {
+      id: timeLog.taskId,
+    },
+    select: {
+      title: true,
+      projectId: true,
+    },
+  });
+
+  if (!task) {
+    throw new AppError("Task not found", 404);
+  }
+
+  await assertProjectIsActive(task.projectId);
 
   const assignment = await prisma.taskAssignment.findFirst({
     where: {
