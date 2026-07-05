@@ -1,22 +1,19 @@
 const asyncHandler = require("../../utils/asyncHandler");
 const { success } = require("../../utils/response");
-const { getTeamSummary, getTeamOverview } = require("./team.service");
+const { getTeamDashboard, getUserDashboard } = require("./team.service");
 
-const getTeamSummaryController = asyncHandler(async (req, res) => {
+
+
+const getDashboardController = asyncHandler(async (req, res) => {
   const { id: userId, role, organizationId } = req.user;
 
-  const summary = await getTeamSummary(organizationId, role, userId);
-  return success(res, summary, "Team summary fetched successfully", 200);
-});
+  const dashboard = role === "USER"
+    ? await getUserDashboard(userId)
+    : await getTeamDashboard(organizationId, userId);
 
-const getTeamOverviewController = asyncHandler(async (req, res) => {
-  const { id: userId, role, organizationId } = req.user;
-
-  const overview = await getTeamOverview(organizationId, role, userId);
-  return success(res, overview, "Team overview fetched successfully", 200);
+  return success(res, dashboard, "Dashboard fetched successfully", 200);
 });
 
 module.exports = {
-  getTeamSummaryController,
-  getTeamOverviewController,
+  getDashboardController,
 };

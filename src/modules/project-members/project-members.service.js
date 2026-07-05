@@ -2,7 +2,6 @@ const { prisma } = require("../../config/db");
 const AppError = require("../../utils/AppError");
 
 const addProjectMember = async (projectId, userId) => {
-  // Check if already a member
   const existingMember = await prisma.projectMembership.findFirst({
     where: { projectId, userId, leftAt: null },
   });
@@ -11,15 +10,19 @@ const addProjectMember = async (projectId, userId) => {
     throw new AppError("User is already a member of this project", 409);
   }
 
-  // Add member
-  const member = await prisma.projectMembership.create({
-    data: {
+  return prisma.projectMembership.upsert({
+    where: {
+      projectId_userId: { projectId, userId }
+    },
+    update: {
+      leftAt: null,
+      updatedAt: new Date()
+    },
+    create: {
       projectId,
       userId,
-    },
+    }
   });
-
-  return member;
 };
 
 const removeProjectMember = async (
@@ -31,8 +34,13 @@ const removeProjectMember = async (
   if (userId === currentUserId) {
     throw new AppError("You cannot remove yourself from the project", 400);
   }
+
   const member = await prisma.projectMembership.findFirst({
-    where: { projectId, userId, leftAt: null },
+    where: {
+      projectId,
+      userId,
+      leftAt: null,
+    },
   });
 
   if (!member) {
@@ -45,15 +53,31 @@ const removeProjectMember = async (
       select: { role: true },
     });
 
-    if (targetUser.role === "ADMIN") {
-      throw new AppError("Only Admin can remove Admin from project", 403);
+    if (targetUser?.role === "ADMIN") {
+      throw new AppError(
+        "Only Admin can remove Admin from project",
+        403
+      );
     }
   }
 
-  await prisma.projectMembership.update({
-    where: { id: member.id },
-    data: { leftAt: new Date() },
-  });
+  await prisma.$transaction([
+    // Remove all task assignments of this user in the project
+    prisma.taskAssignment.deleteMany({
+      where: {
+        userId,
+        task: {
+          projectId,
+        },
+      },
+    }),
+
+    // Mark membership as left
+    prisma.projectMembership.update({
+      where: { id: member.id },
+      data: { leftAt: new Date() },
+    }),
+  ]);
 
   return { message: "Member removed successfully" };
 };
@@ -76,8 +100,43 @@ const getProjectMembers = async (projectId) => {
   return members;
 };
 
+const getFilteredProjectMembers = async (projectId, currentUserId, role) => {
+  let userCondition = {};
+
+  if (role === "ADMIN") {
+    userCondition = {
+      id: { not: BigInt(currentUserId) },
+    };
+  } else if (role === "MANAGER") {
+    userCondition = {
+      role: "USER",
+    };
+  }
+
+  const members = await prisma.projectMembership.findMany({
+    where: { 
+      projectId: BigInt(projectId), 
+      leftAt: null,
+      user: userCondition 
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      },
+    },
+  });
+
+  return members;
+};
+
 module.exports = {
   addProjectMember,
   removeProjectMember,
   getProjectMembers,
+  getFilteredProjectMembers,
 };

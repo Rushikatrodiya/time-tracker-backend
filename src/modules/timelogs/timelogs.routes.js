@@ -2,7 +2,6 @@ const { Router } = require("express");
 const {
   startTimerController,
   endTimeController,
-  getAllTimelogsController,
   getAllTasksTotalDurationController,
   getTaskTimeLogsController,
   updateTaskTimeLogController,
@@ -17,7 +16,6 @@ const router = Router();
 
 router.post("/start", validate(startTimerSchema), startTimerController);
 router.post("/end", endTimeController);
-router.get("/", getAllTimelogsController);
 router.get("/:taskId", getTaskTimeLogsController);
 router.get("/all-tasks/durations", getAllTasksTotalDurationController);
 router.put("/:timeLogId", updateTaskTimeLogController);

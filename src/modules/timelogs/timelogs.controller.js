@@ -3,7 +3,6 @@ const { success } = require("../../utils/response");
 const {
   startTimer,
   endTime,
-  getAllTimelogs,
   getAllTasksTotalDuration,
   getTaskTimeLogs,
   upateTaskTimeLog,
@@ -23,15 +22,10 @@ const endTimeController = asyncHandler(async (req, res) => {
   return success(res, timelogs, "Timer ended successfully");
 });
 
-const getAllTimelogsController = asyncHandler(async (req, res) => {
-  const timelogs = await getAllTimelogs(req.user);
-  return success(res, timelogs, "Time logs fetched successfully ");
-});
-
 const getTaskTimeLogsController = asyncHandler(async (req, res) => {
-  const { id } = req.user;
+  const { id, role } = req.user;
   const { taskId } = req.params;
-  const { timeLogs, totalDuration } = await getTaskTimeLogs(id, taskId);
+  const { timeLogs, totalDuration } = await getTaskTimeLogs(id, taskId, role);
   return success(
     res,
     { timeLogs, totalDuration },
@@ -40,8 +34,8 @@ const getTaskTimeLogsController = asyncHandler(async (req, res) => {
 });
 
 const getAllTasksTotalDurationController = asyncHandler(async (req, res) => {
-  const { id } = req.user;
-  const taskDurations = await getAllTasksTotalDuration(id);
+  const { id, role } = req.user;
+  const taskDurations = await getAllTasksTotalDuration(id, role);
   return success(
     res,
     taskDurations,
@@ -78,7 +72,6 @@ const deleteTimeLogController = asyncHandler(async (req, res) => {
 module.exports = {
   startTimerController,
   endTimeController,
-  getAllTimelogsController,
   getTaskTimeLogsController,
   getAllTasksTotalDurationController,
   updateTaskTimeLogController,

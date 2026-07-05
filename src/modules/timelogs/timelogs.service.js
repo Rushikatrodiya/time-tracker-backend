@@ -1,15 +1,23 @@
 const { prisma } = require("../../config/db");
 const AppError = require("../../utils/AppError");
+const { assertProjectIsActive } = require("../projects/project.helper");
 
 const startTimer = async (userId, taskId) => {
   const task = await prisma.task.findUnique({
     where: {
       id: taskId,
     },
+    select: {
+      title: true,
+      projectId: true,
+    }
   });
   if (!task) {
     throw new AppError("Task not found", 404);
   }
+
+  //verify project is active or not
+  await assertProjectIsActive(task.projectId);
   const activeTimer = await prisma.timeLog.findFirst({
     where: {
       userId,
@@ -57,13 +65,15 @@ const endTime = async (userId) => {
   return timeLog;
 };
 
-const getTaskTimeLogs = async (userId, taskId) => {
+const getTaskTimeLogs = async (userId, taskId, role) => {
+  const whereClause = {
+    taskId,
+    ...(role === 'ADMIN' ? {} : { userId }),
+  };
+
   const [timeLogs, totalDurationResult] = await Promise.all([
     prisma.timeLog.findMany({
-      where: {
-        taskId,
-        userId,
-      },
+      where: whereClause,
       select: {
         id: true,
         startTime: true,
@@ -74,8 +84,7 @@ const getTaskTimeLogs = async (userId, taskId) => {
     }),
     prisma.timeLog.aggregate({
       where: {
-        taskId,
-        userId,
+        ...whereClause,
         duration: { not: null },
       },
       _sum: {
@@ -90,12 +99,14 @@ const getTaskTimeLogs = async (userId, taskId) => {
   };
 };
 
-const getAllTasksTotalDuration = async (userId) => {
+const getAllTasksTotalDuration = async (userId, role) => {
   // Get completed tasks with total durations
+  const userFilter = role === 'USER' ? { userId } : {};
+
   const completedResults = await prisma.timeLog.groupBy({
     by: ["taskId"],
     where: {
-      userId,
+      ...userFilter,
       endTime: { not: null },
       duration: { not: null },
     },
@@ -156,27 +167,6 @@ const getAllTasksTotalDuration = async (userId) => {
   };
 };
 
-const getAllTimelogs = async (user) => {
-  let where = {};
-
-  if (user.role !== "ADMIN") {
-    where = {
-      userId: user.id,
-    };
-  }
-
-  return await prisma.timeLog.findMany({
-    where,
-    include: {
-      task: {
-        select: { id: true, title: true },
-      },
-      user: {
-        select: { id: true, name: true, email: true },
-      },
-    },
-  });
-};
 
 const upateTaskTimeLog = async (
   timeLogId,
@@ -202,6 +192,22 @@ const upateTaskTimeLog = async (
   if (!assignment) {
     throw new AppError("Not assigned to this task", 403);
   }
+
+  const task = await prisma.task.findUnique({
+    where: {
+      id: taskId,
+    },
+    select: {
+      title: true,
+      projectId: true,
+    },
+  });
+
+  if (!task) {
+    throw new AppError("Task not found", 404);
+  }
+
+  await assertProjectIsActive(task.projectId);
 
   // 3. check overlap (exclude current log)
   const overlap = await prisma.timeLog.findFirst({
@@ -259,10 +265,31 @@ const upateTaskTimeLog = async (
 const deleteTimeLog = async (timeLogId) => {
   const timeLog = await prisma.timeLog.findUnique({
     where: { id: timeLogId },
+    select: {
+      id: true,
+      userId: true,
+      taskId: true,
+    }
   });
   if (!timeLog) {
     throw new AppError("Time log not found", 404);
   }
+
+  const task = await prisma.task.findUnique({
+    where: {
+      id: timeLog.taskId,
+    },
+    select: {
+      title: true,
+      projectId: true,
+    },
+  });
+
+  if (!task) {
+    throw new AppError("Task not found", 404);
+  }
+
+  await assertProjectIsActive(task.projectId);
 
   const assignment = await prisma.taskAssignment.findFirst({
     where: {
@@ -291,7 +318,6 @@ const deleteTimeLog = async (timeLogId) => {
 module.exports = {
   startTimer,
   endTime,
-  getAllTimelogs,
   getTaskTimeLogs,
   getAllTasksTotalDuration,
   upateTaskTimeLog,

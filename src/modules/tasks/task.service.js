@@ -4,17 +4,21 @@ const {
   getCursorPaginationResponse,
   getCursorPagination,
 } = require("../../utils/cursorPagination");
+const { assertProjectIsActive } = require("../projects/project.helper");
+
+
 
 const createTask = async (data, currentUserId) => {
-  const { title, status, priority, projectId, assignedToIds = [] } = data;
+  const {
+    title,
+    status,
+    priority,
+    projectId,
+    taskType,
+    assignedToIds = [],
+  } = data;
 
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-  });
-
-  if (!project) {
-    throw new AppError("Project not found", 404);
-  }
+  await assertProjectIsActive(projectId);
 
   // Validate all assigned users
   if (assignedToIds.length > 0) {
@@ -31,11 +35,19 @@ const createTask = async (data, currentUserId) => {
 
   // Create task with assignments in transaction
   const result = await prisma.$transaction(async (tx) => {
+    // Increment lastTicketNumber
+    const updatedProject = await tx.project.update({
+      where: { id: projectId },
+      data: { lastTicketNumber: { increment: 1 } },
+    });
+
     const task = await tx.task.create({
       data: {
         title,
+        ticketNumber: updatedProject.lastTicketNumber,
         status,
         priority,
+        taskType: taskType || "TASK",
         projectId,
         createdBy: currentUserId,
       },
@@ -58,71 +70,65 @@ const createTask = async (data, currentUserId) => {
   return result;
 };
 
-const getAllTasks = async (query, currentUserId) => {
-  const { limit, cursorOption } = getCursorPagination(query);
 
-  let where = {
-    deletedAt: null,
-  };
-  if (query.status) {
-    where.status = query.status;
+const getTasksByProject = async (projectId, query, currentUserId, userRole) => {
+  // Check if user is part of the project (skip for ADMIN)
+  if (userRole !== "ADMIN") {
+    const isMember = await prisma.projectMembership.findFirst({
+      where: {
+        projectId: BigInt(projectId),
+        userId: currentUserId,
+        leftAt: null,
+      },
+    });
+
+    if (!isMember) {
+      throw new AppError("You do not have access to this project", 403);
+    }
   }
 
-  where.assignments = {
-    some: {
-      userId: currentUserId,
-    },
+  const { limit, cursorOption } = getCursorPagination(query);
+
+  const where = {
+    deletedAt: null,
+    projectId: BigInt(projectId),
+    ...(query.status && { status: query.status }),
+    ...(query.priority && { priority: parseInt(query.priority, 10) }),
+    ...(query.taskType && { taskType: query.taskType }),
+    ...(query.search && {
+      title: { contains: query.search, mode: "insensitive" },
+    }),
+    ...(userRole === "USER"
+      ? { assignments: { some: { userId: currentUserId } } }
+      : query.assigneeId && {
+        assignments: { some: { userId: BigInt(query.assigneeId) } },
+      }),
   };
+
   const tasks = await prisma.task.findMany({
     ...cursorOption,
     where,
-    include: {
-      project: {
-        select: { id: true, name: true },
-      },
-      creator: {
-        select: { id: true, name: true },
-      },
-      timeLogs: {
-        select: {
-          id: true,
-          startTime: true,
-          endTime: true,
-          duration: true,
-          title: true,
+    select: {
+      id: true,
+      title: true,
+      ticketNumber: true,
+      status: true,
+      priority: true,
+      createdAt: true,
+      project: { select: { projectKey: true } },
+      creator: { select: { name: true } },
+      ...(userRole !== "USER" && {
+        assignments: {
+          select: { user: { select: { id: true, name: true } } },
         },
+      }),
+      timeLogs: {
+        select: { duration: true },
       },
     },
   });
 
   return { tasks, pagination: getCursorPaginationResponse(tasks, limit) };
-};
-
-const getTaskById = async (id) => {
-  const task = await prisma.task.findMany({
-    where: { id, deletedAt: null },
-    include: {
-      project: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      creator: {
-        select: { id: true, name: true, email: true },
-      },
-      assignedTo: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
-    },
-  });
-
-  if (!task) throw new AppError("Task not found", 404);
-  return task;
 };
 
 const updateTask = async (role, data, id) => {
@@ -138,6 +144,9 @@ const updateTask = async (role, data, id) => {
     throw new AppError("task not found", 404);
   }
 
+  // Verify project status before allowing update
+  await assertProjectIsActive(task.projectId);
+
   return await prisma.task.update({
     where: { id },
     data: {
@@ -148,23 +157,84 @@ const updateTask = async (role, data, id) => {
   });
 };
 
-const deleteTask = async (id) => {
+const deleteTask = async (id, userId, role) => {
   const task = await prisma.task.findUnique({
     where: { id, deletedAt: null },
   });
 
   if (!task) throw new AppError("Task not found", 404);
 
-  return await prisma.task.update({
-    where: { id },
-    data: { deletedAt: new Date() },
+  // Verify project status before allowing deletion
+  await assertProjectIsActive(task.projectId);
+
+  if (role !== "ADMIN" && task.createdById !== userId) {
+    throw new AppError("You don't have permission to delete this task. Only the creator can delete it.", 403);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.timeLog.deleteMany({
+      where: { taskId: id },
+    });
+
+    await tx.task.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   });
+
+  return { message: "Task deleted successfully" };
+};
+
+const getTaskStatsByProject = async (projectId, currentUserId, userRole) => {
+  // Check if user is part of the project (skip for ADMIN)
+  if (userRole !== "ADMIN") {
+    const isMember = await prisma.projectMembership.findFirst({
+      where: {
+        projectId: BigInt(projectId),
+        userId: currentUserId,
+        leftAt: null,
+      },
+    });
+
+    if (!isMember) {
+      throw new AppError("You do not have access to this project", 403);
+    }
+  }
+
+  const baseWhere = {
+    deletedAt: null,
+    projectId: BigInt(projectId),
+    ...(userRole === "USER" && {
+      assignments: { some: { userId: currentUserId } },
+    }),
+  };
+
+  const [project, total, inProgress, completed] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: BigInt(projectId) },
+      select: { status: true }
+    }),
+    prisma.task.count({ where: baseWhere }),
+    prisma.task.count({ where: { ...baseWhere, status: "IN_PROGRESS" } }),
+    prisma.task.count({ where: { ...baseWhere, status: "DONE" } }),
+  ]);
+
+  if (!project) {
+    throw new AppError("Project not found", 404);
+  }
+
+  return {
+    total,
+    inProgress,
+    completed,
+    projectStatus: project.status,
+  };
 };
 
 module.exports = {
   createTask,
-  getAllTasks,
   updateTask,
   deleteTask,
-  getTaskById,
+  getTasksByProject,
+  getTaskStatsByProject,
 };

@@ -12,6 +12,9 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "dependencies": {
     "@prisma/client": "^5.20.0",
     "bcrypt": "^6.0.0",
@@ -24,6 +27,7 @@
     "mysql2": "^3.17.4",
     "prisma": "^5.20.0",
     "redis": "^5.11.0",
+    "resend": "^6.12.4",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "zod": "^4.3.6"
