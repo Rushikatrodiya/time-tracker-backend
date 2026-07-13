@@ -5,12 +5,16 @@ const {
   updateUserProfileController,
   updateUserPasswordController,
   removeUserController,
+  updateUserPayrollController,
+  updateOrganizationCurrencyController,
 } = require("./user.controllers");
 const roleMiddleware = require("../../middlewares/role.middleware");
 const validate = require("../../middlewares/validate.middleware");
 const {
   updateProfileSchema,
   updatePasswordSchema,
+  updatePayrollSchema,
+  updateOrganizationCurrencySchema,
 } = require("../../validatation/user.validations");
 
 const router = Router();
@@ -31,5 +35,19 @@ router.patch(
 );
 
 router.delete("/:id", roleMiddleware("ADMIN"), removeUserController);
+
+router.patch(
+  "/:id",
+  roleMiddleware("ADMIN"),
+  validate(updatePayrollSchema),
+  updateUserPayrollController
+);
+
+router.patch(
+  "/:id/organization",
+  roleMiddleware("ADMIN"),
+  validate(updateOrganizationCurrencySchema),
+  updateOrganizationCurrencyController
+);
 
 module.exports = router;

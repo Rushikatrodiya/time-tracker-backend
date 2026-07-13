@@ -29,7 +29,6 @@ async function main() {
             password,
             role: Role.MANAGER,
             organizationId: org.id,
-            managerId: admin.id,
         },
     });
 
@@ -45,7 +44,6 @@ async function main() {
                     password,
                     role: Role.USER,
                     organizationId: org.id,
-                    managerId: manager.id,
                 },
             })
         )

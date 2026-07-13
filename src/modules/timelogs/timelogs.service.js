@@ -209,39 +209,35 @@ const upateTaskTimeLog = async (
 
   await assertProjectIsActive(task.projectId);
 
-  // 3. check overlap (exclude current log)
-  const overlap = await prisma.timeLog.findFirst({
-    where: {
-      userId,
-      taskId,
-      id: { not: timeLogId }, // 🔥 VERY IMPORTANT
-      endTime: { not: null },
-      AND: [{ startTime: { lt: end } }, { endTime: { gt: start } }],
-    },
-  });
+  const updatedTimeLog = await prisma.$transaction(async (tx) => {
+    const overlap = await tx.timeLog.findFirst({
+      where: {
+        userId,
+        id: { not: timeLogId },
+        startTime: { lt: end },
+        OR: [
+          { endTime: null },
+          { endTime: { gt: start } },
+        ],
+      },
+    });
 
-  if (overlap) {
-    throw new AppError("Time overlaps with existing log", 409);
-  }
+    if (overlap) {
+      throw new AppError("Time overlaps with existing log", 409);
+    }
 
-  // 4. duration
-  const duration = Math.floor((end - start) / 1000);
+    // 4. duration
+    const duration = Math.floor((end - start) / 1000);
 
-  // 5. update log
-  await prisma.timeLog.update({
-    where: { id: timeLogId },
-    data: {
-      startTime: start,
-      endTime: end,
-      duration,
-      title,
-    },
-  });
-
-  // 6. get updated timelog and total duration only
-  const [updatedTimeLog, total] = await Promise.all([
-    prisma.timeLog.findUnique({
+    // 5. update log
+    return tx.timeLog.update({
       where: { id: timeLogId },
+      data: {
+        startTime: start,
+        endTime: end,
+        duration,
+        title,
+      },
       select: {
         id: true,
         startTime: true,
@@ -249,12 +245,14 @@ const upateTaskTimeLog = async (
         duration: true,
         title: true,
       },
-    }),
-    prisma.timeLog.aggregate({
-      where: { userId, taskId },
-      _sum: { duration: true },
-    }),
-  ]);
+    });
+  });
+
+  // 6. total duration for this user+task, computed after the update
+  const total = await prisma.timeLog.aggregate({
+    where: { userId, taskId },
+    _sum: { duration: true },
+  });
 
   return {
     timeLog: updatedTimeLog,

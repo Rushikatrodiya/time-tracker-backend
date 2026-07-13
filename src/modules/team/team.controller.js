@@ -7,9 +7,9 @@ const { getTeamDashboard, getUserDashboard } = require("./team.service");
 const getDashboardController = asyncHandler(async (req, res) => {
   const { id: userId, role, organizationId } = req.user;
 
-  const dashboard = role === "USER"
-    ? await getUserDashboard(userId)
-    : await getTeamDashboard(organizationId, userId);
+  const dashboard = role === "ADMIN"
+    ? await getTeamDashboard(organizationId, userId)
+    : await getUserDashboard(userId)
 
   return success(res, dashboard, "Dashboard fetched successfully", 200);
 });
