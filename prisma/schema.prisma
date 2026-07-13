@@ -11,6 +11,7 @@ model Organization {
   id        BigInt   @id @default(autoincrement())
   name      String
   createdAt DateTime @default(now())
+  currency  String?  @default("USD")
   users     User[]
   projects  Project[]
   invitations Invitation[]
@@ -23,14 +24,11 @@ model User {
   email     String   @unique
   password  String
   role      Role     @default(USER)
+  hourlyRate Decimal? @db.Decimal(10,2)
   createdAt DateTime @default(now())
   
   organizationId BigInt?
   organization   Organization? @relation(fields: [organizationId], references: [id])
-
-  managerId   BigInt?
-  manager     User?         @relation("ManagerToUser", fields: [managerId], references: [id])
-  teamMembers User[]        @relation("ManagerToUser")
 
   
   projectMemberships ProjectMembership[]

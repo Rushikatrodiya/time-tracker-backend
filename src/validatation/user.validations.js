@@ -11,7 +11,18 @@ const updatePasswordSchema = z.object({
   new_password: z.string().min(1, "New password is required"),
 });
 
+const updatePayrollSchema = z.object({
+  hourlyRate: z.number().min(0, "Hourly rate cannot be negative").nullable(),
+  role: z.enum(["ADMIN", "MANAGER", "USER"]).optional()
+});
+
+const updateOrganizationCurrencySchema = z.object({
+  currency: z.string().trim().min(1, "Currency is required")
+});
+
 module.exports = {
   updateProfileSchema,
   updatePasswordSchema,
+  updatePayrollSchema,
+  updateOrganizationCurrencySchema,
 };

@@ -2,36 +2,53 @@ const { prisma } = require("../../config/db");
 const AppError = require("../../utils/AppError");
 const { hashPassword, comparePassword } = require("../../utils/password");
 
-const getAllUsers = async ({ id, role, organizationId }) => {
+const getAllUsers = async ({ organizationId }) => {
   if (!organizationId) {
     throw new AppError("Organization ID is required", 400);
   }
-  const users = await prisma.user.findMany({
-    where: {
-      organizationId,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      organizationId: true,
-      createdAt: true,
-      projectMemberships: {
-        select: {
-          projectId: true,
-          project: {
-            select: {
-              id: true,
-              name: true,
-              projectKey: true,
+
+  const [organization, users] = await Promise.all([
+    prisma.organization.findUnique({
+      where: {
+        id: organizationId,
+      },
+      select: {
+        currency: true,
+      },
+    }),
+
+    prisma.user.findMany({
+      where: {
+        organizationId,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        organizationId: true,
+        createdAt: true,
+        hourlyRate: true,
+        projectMemberships: {
+          select: {
+            projectId: true,
+            project: {
+              select: {
+                id: true,
+                name: true,
+                projectKey: true,
+              },
             },
           },
         },
       },
-    },
-  });
-  return users;
+    }),
+  ]);
+
+  return {
+    currency: organization?.currency,
+    users,
+  };
 };
 
 const getUserById = async (userId) => {
@@ -163,17 +180,78 @@ const removeUserFromOrganization = async (
       where: { createdBy: BigInt(userIdToRemove) },
     }),
 
-    // Unassign team members if this user was a manager
-    prisma.user.updateMany({
-      where: { managerId: BigInt(userIdToRemove) },
-      data: { managerId: null },
-    }),
-
     // Delete the user record
     prisma.user.delete({
       where: { id: BigInt(userIdToRemove) },
     }),
   ]);
+};
+
+const updateUserPayroll = async (userId, data, adminOrganizationId) => {
+  const { hourlyRate, role } = data;
+
+  const targetUser = await prisma.user.findUnique({
+    where: { id: BigInt(userId) },
+  });
+
+  if (!targetUser) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (targetUser.organizationId !== BigInt(adminOrganizationId)) {
+    throw new AppError("Forbidden: You can only update users in your organization", 403);
+  }
+
+  const updateData = { hourlyRate };
+  if (role !== undefined) {
+    updateData.role = role;
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: BigInt(userId) },
+    data: updateData,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      organizationId: true,
+      hourlyRate: true,
+      organization: {
+        select: {
+          currency: true
+        }
+      },
+      createdAt: true,
+    },
+  });
+
+  return updatedUser;
+};
+
+const updateOrganizationCurrency = async (orgId, currency, adminOrgId) => {
+  // Verify admin is updating their own organization
+  if (String(orgId) !== String(adminOrgId)) {
+    throw new AppError("Forbidden: You can only update your own organization", 403);
+  }
+
+  // Ensure organization exists
+  const organization = await prisma.organization.findUnique({
+    where: { id: BigInt(orgId) },
+    select: { id: true }
+  });
+
+  if (!organization) {
+    throw new AppError("Organization not found", 404);
+  }
+
+  const updatedOrg = await prisma.organization.update({
+    where: { id: BigInt(orgId) },
+    data: { currency },
+    select: { id: true, currency: true }
+  });
+
+  return updatedOrg;
 };
 
 module.exports = {
@@ -182,4 +260,6 @@ module.exports = {
   updateUserProfile,
   updateUserPassword,
   removeUserFromOrganization,
+  updateUserPayroll,
+  updateOrganizationCurrency,
 };
