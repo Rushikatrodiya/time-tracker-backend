@@ -6,6 +6,7 @@ const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  domain: process.env.NODE_ENV === "production" ? ".rushikatrodiya.in" : undefined,
   maxAge: Number(process.env.REFRESH_TOKEN_EXPIRY) * 1000,
 };
 
@@ -13,6 +14,7 @@ const ACCESS_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  domain: process.env.NODE_ENV === "production" ? ".rushikatrodiya.in" : undefined,
   maxAge: 15 * 60 * 1000,
 };
 

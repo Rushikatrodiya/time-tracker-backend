@@ -21,7 +21,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
-      "https://time-tracker-frontend-sooty.vercel.app",
+      "https://timetracker.rushikatrodiya.in",
     ],
     credentials: true,
   }),
