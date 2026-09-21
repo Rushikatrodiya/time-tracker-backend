@@ -32,12 +32,13 @@ jobs:
     - name: Deploy to EC2
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USER }}
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
-          docker pull ${{ steps.login-ecr.outputs.registry }}/time-tracker-backend:${{ github.sha }}
-          docker stop my-app || true
-          docker rm my-app || true
-          docker run -d --name my-app -p 80:80 ${{ steps.login-ecr.outputs.registry }}/time-tracker-backend:${{ github.sha }}
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+            docker pull ${{ steps.login-ecr.outputs.registry }}/time-tracker-backend:${{ github.sha }}
+            docker stop my-app || true
+            docker rm my-app || true
+            aws ssm get-parameters-by-path --path "/time-tracker/" --with-decryption --region ap-south-1 --query "Parameters[*].[Name,Value]" --output text | while read name value; do echo "$(basename $name)=$value"; done > /home/ubuntu/.env
+            docker run -d --name my-app --env-file /home/ubuntu/.env -p 3000:3000 ${{ steps.login-ecr.outputs.registry }}/time-tracker-backend:${{ github.sha }}
